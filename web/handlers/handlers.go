@@ -2,22 +2,30 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
+	"os"
 
-	"github.com/underark/stone-collector/internal/models/state"
+	"github.com/jackc/pgx/v5"
 	"github.com/underark/stone-collector/internal/models/stones"
 )
 
-func GetHandler(storage []stones.Stone) func(w http.ResponseWriter, r *http.Request) {
+func GetHandler() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			storage = append(storage, stones.New())
-			// TODO: extract this into functions to parse game state into struct and write response
-			s := state.State{Stones: len(storage)}
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(s)
+			stone := stones.New()
+			conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer conn.Close(context.Background())
+
+			_, err = conn.Exec(context.TODO(), "INSERT INTO stones (owner_id, material) VALUES (1, $1);", stone.Material)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 }
