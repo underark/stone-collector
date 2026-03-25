@@ -13,6 +13,7 @@ func GetHandler(storage []stones.Stone) func(w http.ResponseWriter, r *http.Requ
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			storage = append(storage, stones.New())
+			// TODO: extract this into functions to parse game state into struct and write response
 			s := state.State{Stones: len(storage)}
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
