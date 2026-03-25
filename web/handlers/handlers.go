@@ -2,15 +2,21 @@
 package handlers
 
 import (
-	"io"
+	"encoding/json"
 	"net/http"
 
-	"github.com/underark/stone-collector/internal/models"
+	"github.com/underark/stone-collector/internal/models/state"
+	"github.com/underark/stone-collector/internal/models/stones"
 )
 
-func GetHandler() func(w http.ResponseWriter, r *http.Request) {
+func GetHandler(storage []stones.Stone) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		stone := stones.New()
-		io.WriteString(w, stone.Material)
+		if r.Method == "GET" {
+			storage = append(storage, stones.New())
+			s := state.State{Stones: len(storage)}
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(s)
+		}
 	}
 }
