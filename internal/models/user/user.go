@@ -11,6 +11,6 @@ type User struct {
 	LastTick string `json:"lastTick"`
 }
 
-func (u *User) parseTime() (time.Time, error) {
-	return time.Parse(time.TimeOnly, "00:00:00")
+func (u *User) ParseTime() (time.Time, error) {
+	return time.Parse(time.DateTime, u.LastTick)
 }

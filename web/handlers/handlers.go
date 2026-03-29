@@ -8,14 +8,13 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/underark/stone-collector/internal/models/stones"
+	"github.com/underark/stone-collector/internal/game"
 	"github.com/underark/stone-collector/internal/models/user"
 )
 
-func GetHandler() func(w http.ResponseWriter, r *http.Request) {
+func GetHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			stone := stones.New()
 			conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -23,11 +22,25 @@ func GetHandler() func(w http.ResponseWriter, r *http.Request) {
 			}
 			defer conn.Close(context.Background())
 
-			_, err = conn.Exec(context.TODO(), "INSERT INTO stones (owner_id, material) VALUES (1, $1);", stone.Material)
+			rows, err := conn.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1", userID)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+
+			user, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[user.User])
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			ticks, err := game.TicksSince(user)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+			fmt.Printf("Date in read user is %s\n", user.LastTick)
+			fmt.Printf("Ticks are %d\n", ticks)
 		}
 	}
 }

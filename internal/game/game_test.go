@@ -16,10 +16,10 @@ func TestTicksSince1(t *testing.T) {
 		t.Errorf("Wanted parsed string got %v: %v", earlier, err)
 	}
 
-	want := 1.0
-	ticks := TicksSince(earlier, later)
+	want := 1
+	ticks := calculateTickDiff(earlier, later)
 	if ticks != want {
-		t.Errorf("wanted %f got %f", want, ticks)
+		t.Errorf("wanted %d got %d", want, ticks)
 	}
 }
 
@@ -34,10 +34,10 @@ func TestTicksSince2(t *testing.T) {
 		t.Errorf("Wanted parsed string got %v: %v", earlier, err)
 	}
 
-	want := 2.0
-	ticks := TicksSince(earlier, later)
+	want := 2
+	ticks := calculateTickDiff(earlier, later)
 	if ticks != want {
-		t.Errorf("wanted %f got %f", want, ticks)
+		t.Errorf("wanted %d got %d", want, ticks)
 	}
 }
 
@@ -52,9 +52,9 @@ func TestTicksSince2Floor(t *testing.T) {
 		t.Errorf("Wanted parsed string got %v: %v", earlier, err)
 	}
 
-	want := 2.0
-	ticks := TicksSince(earlier, later)
+	want := 2
+	ticks := calculateTickDiff(earlier, later)
 	if ticks != want {
-		t.Errorf("wanted %f got %f", want, ticks)
+		t.Errorf("wanted %d got %d", want, ticks)
 	}
 }
