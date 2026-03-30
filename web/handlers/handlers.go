@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/underark/stone-collector/internal/game"
+	"github.com/underark/stone-collector/internal/models/locations"
 	"github.com/underark/stone-collector/internal/models/state"
 	"github.com/underark/stone-collector/internal/models/stones"
 	"github.com/underark/stone-collector/internal/models/user"
@@ -28,14 +29,17 @@ func HomeHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 			rows, err := conn.Query(context.Background(), "SELECT sum(amount) AS stones FROM stones WHERE owner_id = $1;", userID)
 			if err != nil {
 				fmt.Printf("Error collecting stone total: %s", err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 
 			state, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[state.State])
 			if err != nil {
 				fmt.Printf("Error collecting stone total: %s", err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 
-			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(state)
 		}
@@ -63,7 +67,7 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for range ticks {
-				stone := stones.New()
+				stone := stones.New(locations.Park)
 				result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + 1 WHERE owner_id = $1 AND material = $2;", userID, stone.Material)
 				if err != nil {
 					fmt.Printf("Error updating database: %s", err.Error())
