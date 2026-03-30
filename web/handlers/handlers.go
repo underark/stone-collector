@@ -79,6 +79,18 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			newTicks, err := u.ConsumeTicks(ticks)
+			if err != nil {
+				fmt.Printf("Error generating new ticks: %s", err.Error())
+				return
+			}
+
+			_, err = conn.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", userID, newTicks)
+			if err != nil {
+				fmt.Printf("Error updating database last_ticks: %s", err.Error())
+				return
+			}
+
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		}
 	}
