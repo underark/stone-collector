@@ -13,8 +13,8 @@ type Location struct {
 }
 
 type Drop struct {
-	material string
-	amount   int
+	Material string
+	Amount   int
 }
 
 type drop struct {
@@ -38,33 +38,34 @@ var Beach = Location{
 	},
 }
 
-func (l *Location) Drops(ticks int) (drops map[string]int) {
+func (l *Location) Drops(ticks int) (drops []Drop) {
 	// TODO: find a way to make a better data structure (slice?) work with the loop approach below
-	drops = make(map[string]int)
+	drops = make([]Drop, 0)
 	remaining := ticks
 	if ticks > 100 {
 		for i, d := range l.drops {
 			if i == len(l.drops)-1 {
-				drops[d.material] = remaining
+				drops = append(drops, Drop{d.material, remaining})
 			} else {
 				mean := int(d.rate * float64(ticks))
 				variance := int(float64(mean) * (1 - d.rate))
 				stddev := int(math.Sqrt(float64(variance)))
 				amount := rand.IntN((mean+stddev)+1-(mean-stddev)) + (mean - stddev)
-				drops[d.material] = amount
+				drops = append(drops, Drop{d.material, amount})
 				remaining = remaining - amount
 			}
 		}
 	} else {
 		for range ticks {
 			material := l.drops[rand.IntN(len(l.drops))].material
-			drops[material] = drops[material] + 1
+			drops = append(drops, Drop{material, 1})
 		}
 	}
 	return
 }
 
 func IDToLocation(id int) (Location, error) {
+	// TODO: is there a more extensible way of doing this?
 	switch id {
 	case 0:
 		return Park, nil

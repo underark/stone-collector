@@ -25,7 +25,7 @@ func calculateTickDiff(lastTick time.Time, now time.Time) int {
 	return int(duration.Minutes() / float64(tick))
 }
 
-func DropsFromLocation(locationID int, ticks int) (map[string]int, error) {
+func DropsFromLocation(locationID int, ticks int) ([]locations.Drop, error) {
 	location, err := locations.IDToLocation(locationID)
 	if err != nil {
 		return nil, err

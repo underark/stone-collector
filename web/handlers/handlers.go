@@ -59,25 +59,40 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 				fmt.Printf("Error loading user: %s", err.Error())
 			}
 
+			workersInfo, err := conn.Query(context.Background(), "SELECT location_id FROM workers WHERE owner_id = $1;", userID)
+			if err != nil {
+				fmt.Printf("Error getting workers: %s", err.Error())
+				return
+			}
+
+			workers, err := pgx.CollectRows(workersInfo, pgx.RowToStructByName[state.Worker])
+			if err != nil {
+				fmt.Printf("Error scanning workers: %s", err.Error())
+				return
+			}
+
 			ticks, err := game.TicksSince(u)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 
-			drops, err := game.DropsFromLocation(0, ticks)
-			if err != nil {
-				fmt.Printf("Error generating drops: %s", err.Error())
-			}
-
-			for k, v := range drops {
-				result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, k, v)
+			for _, w := range workers {
+				drops, err := game.DropsFromLocation(w.LocationID, ticks)
 				if err != nil {
-					fmt.Printf("Error updating database: %s", err.Error())
+					fmt.Printf("Error generating drops: %s", err.Error())
 					return
 				}
 
-				if result.RowsAffected() == 0 {
-					conn.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, k, v)
+				for _, d := range drops {
+					result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, d.Material, d.Amount)
+					if err != nil {
+						fmt.Printf("Error updating database: %s", err.Error())
+						return
+					}
+
+					if result.RowsAffected() == 0 {
+						conn.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, d.Material, d.Amount)
+					}
 				}
 			}
 
