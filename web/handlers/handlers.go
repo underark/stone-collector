@@ -10,9 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/underark/stone-collector/internal/game"
-	"github.com/underark/stone-collector/internal/models/locations"
 	"github.com/underark/stone-collector/internal/models/state"
-	"github.com/underark/stone-collector/internal/models/stones"
 	"github.com/underark/stone-collector/internal/models/user"
 )
 
@@ -66,16 +64,20 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 
-			for range ticks {
-				stone := stones.New(locations.Park)
-				result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + 1 WHERE owner_id = $1 AND material = $2;", userID, stone.Material)
+			drops, err := game.DropsFromLocation(0, ticks)
+			if err != nil {
+				fmt.Printf("Error generating drops: %s", err.Error())
+			}
+
+			for k, v := range drops {
+				result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, k, v)
 				if err != nil {
 					fmt.Printf("Error updating database: %s", err.Error())
 					return
 				}
 
 				if result.RowsAffected() == 0 {
-					conn.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, 1);", userID, stone.Material)
+					conn.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, k, v)
 				}
 			}
 

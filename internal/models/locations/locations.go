@@ -63,3 +63,14 @@ func (l *Location) Drops(ticks int) (drops map[string]int) {
 	}
 	return
 }
+
+func IDToLocation(id int) (Location, error) {
+	switch id {
+	case 0:
+		return Park, nil
+	case 1:
+		return Beach, nil
+	default:
+		return Location{}, nil
+	}
+}
