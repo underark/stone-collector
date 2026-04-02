@@ -3,8 +3,8 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"os"
 
@@ -38,13 +38,18 @@ func HomeHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(state)
+			t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/index.tmpl")
+			if err != nil {
+				fmt.Printf("Error rendering template: %s", err.Error())
+				return
+			}
+			t.ExecuteTemplate(w, "base", state)
 		}
 	}
 }
 
 func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
+	// TODO: simplify this
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
@@ -111,6 +116,17 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		}
 	}
+}
+
+func StaticHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(r.URL.Path[1:])
+	if err != nil {
+		fmt.Printf("Error loading static files: %s\n", err.Error())
+	}
+
+	w.Header().Set("Content-Type", "text/css")
+
+	w.Write(data)
 }
 
 func loadUser(userID int, dbConn *pgx.Conn) (user.User, error) {

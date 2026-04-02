@@ -13,7 +13,8 @@ func main() {
 		log.Fatalf("Error loading environment variables: %v", err)
 	}
 
-	http.HandleFunc("/", handlers.HomeHandler(1))
+	http.HandleFunc("/home", handlers.HomeHandler(1))
 	http.HandleFunc("/tick", handlers.TickHandler(1))
+	http.HandleFunc("/web/static/", handlers.StaticHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

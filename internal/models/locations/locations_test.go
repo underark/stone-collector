@@ -8,8 +8,8 @@ func TestDrops(t *testing.T) {
 	for i := range 1000 {
 		drops := Park.Drops(i)
 		var total int
-		for _, v := range drops {
-			total = total + v
+		for _, d := range drops {
+			total = total + d.Amount
 		}
 
 		if total != i {
