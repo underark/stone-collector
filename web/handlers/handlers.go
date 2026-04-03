@@ -59,10 +59,8 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 			}
 			defer conn.Close(context.Background())
 
-			u, err := loadUser(userID, conn)
-			if err != nil {
-				fmt.Printf("Error loading user: %s", err.Error())
-			}
+			// TODO: roll workers and user info into the same query with a table join + extending state struct
+			ticks := updateUserTicks(userID, conn)
 
 			workersInfo, err := conn.Query(context.Background(), "SELECT location_id FROM workers WHERE owner_id = $1;", userID)
 			if err != nil {
@@ -76,10 +74,7 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			ticks, err := game.TicksSince(u)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
+			fmt.Printf("Processing %d ticks\n", ticks)
 
 			for _, w := range workers {
 				drops, err := game.DropsFromLocation(w.LocationID, ticks)
@@ -101,19 +96,7 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			newTicks, err := u.ConsumeTicks(ticks)
-			if err != nil {
-				fmt.Printf("Error generating new ticks: %s", err.Error())
-				return
-			}
-
-			_, err = conn.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", userID, newTicks)
-			if err != nil {
-				fmt.Printf("Error updating database last_ticks: %s", err.Error())
-				return
-			}
-
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, "/home", http.StatusTemporaryRedirect)
 		}
 	}
 }
@@ -141,4 +124,21 @@ func loadUser(userID int, dbConn *pgx.Conn) (user.User, error) {
 	}
 
 	return u, nil
+}
+
+func updateUserTicks(id int, dbConn *pgx.Conn) (ticks int) {
+	tx, _ := dbConn.Begin(context.Background())
+	rows, _ := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE NOWAIT", id)
+
+	u, _ := pgx.CollectOneRow(rows, pgx.RowToStructByName[user.User])
+
+	ticks, _ = game.TicksSince(u)
+
+	newTicks, _ := u.ConsumeTicks(ticks)
+
+	tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", id, newTicks)
+
+	tx.Commit(context.Background())
+
+	return
 }

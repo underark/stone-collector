@@ -14,7 +14,7 @@ func main() {
 	}
 
 	http.HandleFunc("/home", handlers.HomeHandler(1))
-	http.HandleFunc("/tick", handlers.TickHandler(1))
+	http.HandleFunc("/tick", handlers.TickHandler(4))
 	http.HandleFunc("/web/static/", handlers.StaticHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

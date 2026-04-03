@@ -2,7 +2,6 @@
 package game
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/underark/stone-collector/internal/models/locations"
@@ -20,8 +19,6 @@ func TicksSince(user user.User) (int, error) {
 func calculateTickDiff(lastTick time.Time, now time.Time) int {
 	duration := now.Sub(lastTick)
 	tick := 5
-	fmt.Printf("lastTick in calculateTickDiff is %s\n", lastTick.String())
-	fmt.Printf("Minutes in calculateTickDiff are %f\n", duration.Minutes())
 	return int(duration.Minutes() / float64(tick))
 }
 
