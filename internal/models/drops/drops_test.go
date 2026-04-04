@@ -1,4 +1,4 @@
-package locations
+package drops
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 
 func TestDrops(t *testing.T) {
 	for i := range 1000 {
-		drops := Park.Drops(i)
+		drops := Drops(i)
 		var total int
 		for _, d := range drops {
 			total = total + d.Amount

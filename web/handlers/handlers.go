@@ -61,6 +61,9 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 
 			// TODO: roll workers and user info into the same query with a table join + extending state struct
 			ticks := updateUserTicks(userID, conn)
+			if ticks <= 0 {
+				return
+			}
 
 			workersInfo, err := conn.Query(context.Background(), "SELECT location_id FROM workers WHERE owner_id = $1;", userID)
 			if err != nil {
@@ -112,33 +115,37 @@ func StaticHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func loadUser(userID int, dbConn *pgx.Conn) (user.User, error) {
-	rows, err := dbConn.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1", userID)
+func updateUserTicks(id int, dbConn *pgx.Conn) (ticks int, err error) {
+	tx, err := dbConn.Begin(context.Background())
+	defer tx.Rollback(context.Background())
 	if err != nil {
-		return user.User{}, err
+		return ticks, err
+	}
+
+	rows, err := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE NOWAIT", id)
+	if err != nil {
+		return ticks, err
 	}
 
 	u, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[user.User])
 	if err != nil {
-		return user.User{}, err
+		return ticks, err
 	}
 
-	return u, nil
-}
+	ticks, err = game.TicksSince(u)
+	if err != nil {
+		return ticks, err
+	}
 
-func updateUserTicks(id int, dbConn *pgx.Conn) (ticks int) {
-	tx, _ := dbConn.Begin(context.Background())
-	rows, _ := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE NOWAIT", id)
-
-	u, _ := pgx.CollectOneRow(rows, pgx.RowToStructByName[user.User])
-
-	ticks, _ = game.TicksSince(u)
-
-	newTicks, _ := u.ConsumeTicks(ticks)
-
-	tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", id, newTicks)
+	newTicks, err := u.ConsumeTicks(ticks)
+	if err != nil {
+		return ticks, err
+	}
+	_, err = tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", id, newTicks)
+	if err != nil {
+		return ticks, err
+	}
 
 	tx.Commit(context.Background())
-
 	return
 }
