@@ -59,48 +59,32 @@ func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 			}
 			defer conn.Close(context.Background())
 
-			// TODO: roll workers and user info into the same query with a table join + extending state struct
-			ticks := updateUserTicks(userID, conn)
+			ticks, err := updateUserTicks(userID, conn)
 			if ticks <= 0 {
-				return
-			}
-
-			workersInfo, err := conn.Query(context.Background(), "SELECT location_id FROM workers WHERE owner_id = $1;", userID)
-			if err != nil {
-				fmt.Printf("Error getting workers: %s", err.Error())
-				return
-			}
-
-			workers, err := pgx.CollectRows(workersInfo, pgx.RowToStructByName[state.Worker])
-			if err != nil {
-				fmt.Printf("Error scanning workers: %s", err.Error())
 				return
 			}
 
 			fmt.Printf("Processing %d ticks\n", ticks)
 
-			for _, w := range workers {
-				drops, err := game.DropsFromLocation(w.LocationID, ticks)
+			drops := game.GetDrops(ticks)
+			if err != nil {
+				fmt.Printf("Error generating drops: %s", err.Error())
+				return
+			}
+
+			for _, d := range drops {
+				result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, d.Material, d.Amount)
 				if err != nil {
-					fmt.Printf("Error generating drops: %s", err.Error())
+					fmt.Printf("Error updating database: %s", err.Error())
 					return
 				}
 
-				for _, d := range drops {
-					result, err := conn.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, d.Material, d.Amount)
-					if err != nil {
-						fmt.Printf("Error updating database: %s", err.Error())
-						return
-					}
-
-					if result.RowsAffected() == 0 {
-						conn.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, d.Material, d.Amount)
-					}
+				if result.RowsAffected() == 0 {
+					conn.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, d.Material, d.Amount)
 				}
 			}
-
-			http.Redirect(w, r, "/home", http.StatusTemporaryRedirect)
 		}
+		http.Redirect(w, r, "/home", http.StatusTemporaryRedirect)
 	}
 }
 
@@ -115,37 +99,38 @@ func StaticHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func updateUserTicks(id int, dbConn *pgx.Conn) (ticks int, err error) {
+// TODO: Handle error cases
+func updateUserTicks(id int, dbConn *pgx.Conn) (int, error) {
 	tx, err := dbConn.Begin(context.Background())
 	defer tx.Rollback(context.Background())
 	if err != nil {
-		return ticks, err
+		return 0, err
 	}
 
-	rows, err := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE NOWAIT", id)
+	rows, err := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE;", id)
 	if err != nil {
-		return ticks, err
+		return 0, err
 	}
 
 	u, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[user.User])
 	if err != nil {
-		return ticks, err
+		return 0, err
 	}
 
-	ticks, err = game.TicksSince(u)
+	ticks, err := game.TicksSince(u)
 	if err != nil {
-		return ticks, err
+		return 0, err
 	}
 
 	newTicks, err := u.ConsumeTicks(ticks)
 	if err != nil {
-		return ticks, err
+		return 0, err
 	}
 	_, err = tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", id, newTicks)
 	if err != nil {
-		return ticks, err
+		return 0, err
 	}
 
 	tx.Commit(context.Background())
-	return
+	return ticks, nil
 }
