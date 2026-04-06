@@ -5,6 +5,18 @@ type State struct {
 	Stones int `json:"stones"`
 }
 
-type Worker struct {
-	LocationID int `json:"locationID"`
+type Trade struct {
+	ID          int    `json:"id"`
+	OwnerID     int    `json:"ownerID"`
+	Material    string `json:"material"`
+	Amount      int    `json:"amount"`
+	MaterialReq string `json:"materialReq"`
+	AmountReq   int    `json:"amountReq"`
+}
+
+type Inventory struct {
+	ID       int    `json:"id"`
+	OwnerID  int    `json:"ownerID"`
+	Material string `json:"material"`
+	Amount   int    `json:"amount"`
 }

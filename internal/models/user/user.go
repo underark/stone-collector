@@ -28,5 +28,5 @@ func (u *User) ConsumeTicks(ticks int) (string, error) {
 		return "", err
 	}
 
-	return lastTick.Add(tickDuration).Format(time.DateTime), err
+	return lastTick.Add(tickDuration).Format(time.DateTime), nil
 }
