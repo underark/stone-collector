@@ -7,9 +7,10 @@ import (
 )
 
 type User struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	LastTick string `json:"lastTick"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	LastTick  string `json:"lastTick"`
+	SessionID string `json:"sessionID"`
 }
 
 func (u *User) ParseTime() (time.Time, error) {

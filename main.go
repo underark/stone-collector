@@ -6,6 +6,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/underark/stone-collector/web/handlers"
+	"github.com/underark/stone-collector/web/middleware"
 )
 
 func main() {
@@ -13,9 +14,10 @@ func main() {
 		log.Fatalf("Error loading environment variables: %v", err)
 	}
 
+	mux := http.NewServeMux()
+	mux.Handle("GET /tick", middleware.CheckCookie(http.HandlerFunc(handlers.TickHandler)))
 	http.HandleFunc("/home", handlers.HomeHandler(1))
-	http.HandleFunc("/tick", handlers.TickHandler(4))
 	http.HandleFunc("/trade", handlers.TradeHandler(4, 1))
 	http.HandleFunc("/web/static/", handlers.StaticHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }

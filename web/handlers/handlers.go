@@ -12,6 +12,7 @@ import (
 	"github.com/underark/stone-collector/internal/game"
 	"github.com/underark/stone-collector/internal/models/state"
 	"github.com/underark/stone-collector/internal/models/user"
+	"github.com/underark/stone-collector/web/middleware"
 )
 
 func HomeHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
@@ -48,73 +49,74 @@ func HomeHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func TickHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
-	// TODO: simplify this
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+func TickHandler(w http.ResponseWriter, r *http.Request) {
+	type k string
+	ctx := r.Context()
+	userID := middleware.GetVal(ctx, "userID")
+
+	if r.Method == "GET" {
+		conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer conn.Close(context.Background())
+
+		tx, err := conn.Begin(context.Background())
+		defer tx.Rollback(context.Background())
+		if err != nil {
+			fmt.Printf("Error opening transaction: %s\n", err.Error())
+			return
+		}
+
+		rows, err := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE;", userID)
+		if err != nil {
+			fmt.Printf("Error selecting user data: %s\n", err.Error())
+			return
+		}
+
+		u, err := pgx.CollectOneRow(rows, pgx.RowToStructByNameLax[user.User])
+		if err != nil {
+			fmt.Printf("Error reading user data to struct: %s\n", err.Error())
+			return
+		}
+
+		ticks, err := game.TicksSince(u)
+		if err != nil {
+			fmt.Printf("Error calculating elapsed ticks: %s\n", err.Error())
+			return
+		}
+
+		newTicks, err := u.ConsumeTicks(ticks)
+		if err != nil {
+			fmt.Printf("Error calculating new last tick time: %s\n", err.Error())
+			return
+		}
+		_, err = tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", userID, newTicks)
+		if err != nil {
+			fmt.Printf("Error updating user ticks: %s\n", err.Error())
+			return
+		}
+		fmt.Printf("Processing %d ticks\n", ticks)
+
+		drops := game.GetDrops(ticks)
+
+		for _, d := range drops {
+			result, err := tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, d.Material, d.Amount)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				fmt.Printf("Error updating database: %s\n", err.Error())
 				return
 			}
-			defer conn.Close(context.Background())
 
-			tx, err := conn.Begin(context.Background())
-			defer tx.Rollback(context.Background())
-			if err != nil {
-				fmt.Printf("Error opening transaction: %s\n", err.Error())
-				return
+			if result.RowsAffected() == 0 {
+				tx.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, d.Material, d.Amount)
 			}
+		}
 
-			rows, err := tx.Query(context.Background(), "SELECT id, name, last_tick::text FROM users WHERE id = $1 FOR UPDATE;", userID)
-			if err != nil {
-				fmt.Printf("Error selecting user data: %s\n", err.Error())
-				return
-			}
-
-			u, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[user.User])
-			if err != nil {
-				fmt.Printf("Error reading user data to struct: %s\n", err.Error())
-				return
-			}
-
-			ticks, err := game.TicksSince(u)
-			if err != nil {
-				fmt.Printf("Error calculating elapsed ticks: %s\n", err.Error())
-				return
-			}
-
-			newTicks, err := u.ConsumeTicks(ticks)
-			if err != nil {
-				fmt.Printf("Error calculating new last tick time: %s\n", err.Error())
-				return
-			}
-			_, err = tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", userID, newTicks)
-			if err != nil {
-				fmt.Printf("Error updating user ticks: %s\n", err.Error())
-				return
-			}
-			fmt.Printf("Processing %d ticks\n", ticks)
-
-			drops := game.GetDrops(ticks)
-
-			for _, d := range drops {
-				result, err := tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $3 WHERE owner_id = $1 AND material = $2;", userID, d.Material, d.Amount)
-				if err != nil {
-					fmt.Printf("Error updating database: %s\n", err.Error())
-					return
-				}
-
-				if result.RowsAffected() == 0 {
-					tx.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", userID, d.Material, d.Amount)
-				}
-			}
-
-			err = tx.Commit(context.Background())
-			if err != nil {
-				fmt.Printf("Error committing changes: %s\n", err.Error())
-				return
-			}
+		err = tx.Commit(context.Background())
+		if err != nil {
+			fmt.Printf("Error committing changes: %s\n", err.Error())
+			return
 		}
 	}
 }
