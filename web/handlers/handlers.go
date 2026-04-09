@@ -3,6 +3,8 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -49,8 +51,41 @@ func HomeHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func StartHandler(w http.ResponseWriter, r *http.Request) {
+	_, err := r.Cookie("stone-game-user")
+	if err == nil {
+		fmt.Println("User already has cookie: redirecting")
+		return
+	}
+
+	conn, err := pgx.Connect(r.Context(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		fmt.Printf("Error connecting to database: %s\n", err.Error())
+		return
+	}
+	defer conn.Close(r.Context())
+
+	b := make([]byte, 12)
+	rand.Read(b)
+	val := base64.RawStdEncoding.EncodeToString(b)
+	c := http.Cookie{
+		Name:     "stone-game-user",
+		Value:    val,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &c)
+
+	_, err = conn.Exec(r.Context(), "INSERT INTO users (name, last_tick, session_id) VALUES ($1, NOW() at time zone 'utc', $2);", "newUser", val)
+	if err != nil {
+		fmt.Printf("Error writing user info to database: %s\n", err.Error())
+		return
+	}
+	fmt.Printf("Wrote cookie successfully: %s\n", val)
+	http.Redirect(w, r, "/home", http.StatusFound)
+}
+
 func TickHandler(w http.ResponseWriter, r *http.Request) {
-	type k string
 	ctx := r.Context()
 	userID := middleware.GetVal(ctx, "userID")
 

@@ -13,6 +13,8 @@ import (
 
 type k string
 
+// GetVal is used to retrieve a value from the context
+// as we aren't exporting type 'k' so as to avoid collisions with other packages
 func GetVal(ctx context.Context, key string) any {
 	return ctx.Value(k(key))
 }
@@ -26,7 +28,7 @@ func CheckCookie(route http.Handler) http.Handler {
 		}
 		defer conn.Close(r.Context())
 
-		c, err := r.Cookie("user")
+		c, err := r.Cookie("stone-game-user")
 		if err != nil {
 			fmt.Printf("Error getting cookie info: %s\n", err.Error())
 			return

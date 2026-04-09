@@ -16,6 +16,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /tick", middleware.CheckCookie(http.HandlerFunc(handlers.TickHandler)))
+	mux.Handle("GET /start", http.HandlerFunc(handlers.StartHandler))
 	http.HandleFunc("/home", handlers.HomeHandler(1))
 	http.HandleFunc("/trade", handlers.TradeHandler(4, 1))
 	http.HandleFunc("/web/static/", handlers.StaticHandler)
