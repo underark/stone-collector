@@ -25,3 +25,7 @@ func calculateTickDiff(lastTick time.Time, now time.Time) int {
 func GetDrops(ticks int) []drops.Drop {
 	return drops.Drops(ticks)
 }
+
+func Droppable() []string {
+	return drops.Droppable()
+}

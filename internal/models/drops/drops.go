@@ -51,3 +51,11 @@ func Drops(ticks int) (drops []Drop) {
 	}
 	return
 }
+
+func Droppable() []string {
+	s := make([]string, 0)
+	for _, d := range table {
+		s = append(s, d.material)
+	}
+	return s
+}

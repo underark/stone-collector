@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/joho/godotenv"
-	"github.com/underark/stone-collector/web/handlers"
-	"github.com/underark/stone-collector/web/middleware"
+	h "github.com/underark/stone-collector/web/handlers"
+	m "github.com/underark/stone-collector/web/middleware"
 )
 
 func main() {
@@ -15,10 +15,10 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /tick", middleware.CheckCookie(http.HandlerFunc(handlers.TickHandler)))
-	mux.Handle("GET /start", http.HandlerFunc(handlers.StartHandler))
-	http.HandleFunc("/home", handlers.HomeHandler(1))
-	http.HandleFunc("/trade", handlers.TradeHandler(4, 1))
-	http.HandleFunc("/web/static/", handlers.StaticHandler)
+	mux.Handle("GET /tick", m.CheckCookie(http.HandlerFunc(h.TickHandler)))
+	mux.Handle("GET /start", http.HandlerFunc(h.StartHandler))
+	http.HandleFunc("/home", h.HomeHandler(1))
+	http.HandleFunc("/trade", h.TradeHandler(4, 1))
+	http.HandleFunc("/web/static/", h.StaticHandler)
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

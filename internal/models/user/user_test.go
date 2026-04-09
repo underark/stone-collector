@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseTimeDummy(t *testing.T) {
-	user := User{1, "alex", "2004-10-19 10:23:54"}
+	user := User{1, "alex", "2004-10-19 10:23:54", ""}
 	time, err := user.ParseTime()
 	if err != nil {
 		t.Errorf("Wanted time got %v: %v", time, err)
@@ -15,7 +15,7 @@ func TestParseTimeDummy(t *testing.T) {
 }
 
 func TestConsumeTicks(t *testing.T) {
-	user := User{1, "alex", "0000-01-01 00:00:00"}
+	user := User{1, "alex", "0000-01-01 00:00:00", ""}
 	time, err := user.ParseTime()
 	if err != nil {
 		t.Errorf("Wanted time got %v: %v", time, err)
@@ -32,7 +32,7 @@ func TestConsumeTicks(t *testing.T) {
 }
 
 func TestConsumeTicksNow(t *testing.T) {
-	user := User{1, "alex", time.Now().Format(time.DateTime)}
+	user := User{1, "alex", time.Now().Format(time.DateTime), ""}
 	userTime, err := user.ParseTime()
 	if err != nil {
 		t.Errorf("Wanted time got %v: %v", userTime, err)
