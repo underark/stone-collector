@@ -1,5 +1,9 @@
-// Package state defines game state
-package state
+package models
+
+type Drop struct {
+	Material string
+	Amount   int
+}
 
 type State struct {
 	Stones int `json:"stones"`
@@ -20,3 +24,11 @@ type Inventory struct {
 	Material string `json:"material"`
 	Amount   int    `json:"amount"`
 }
+
+const (
+	Limestone = "Limestone"
+	Basalt    = "Basalt"
+	Sand      = "Sand"
+	Shell     = "Shell"
+	Granite   = "Granite"
+)

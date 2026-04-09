@@ -8,15 +8,14 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/underark/stone-collector/internal/models/user"
 )
 
 type k string
 
 // GetVal is used to retrieve a value from the context
 // as we aren't exporting type 'k' so as to avoid collisions with other packages
-func GetVal(ctx context.Context, key string) any {
-	return ctx.Value(k(key))
+func GetUserID(ctx context.Context) int {
+	return ctx.Value(k("userID")).(int)
 }
 
 func CheckCookie(route http.Handler) http.Handler {
