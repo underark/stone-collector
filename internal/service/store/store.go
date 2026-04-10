@@ -84,3 +84,20 @@ func (s *Store) GetTotalStones(userID int) (models.State, error) {
 	}
 	return state, nil
 }
+
+func (s *Store) GetUserFromSession(sessionID string) (int, error) {
+	rows, err := s.pool.Query(context.Background(), "SELECT id FROM users WHERE session_id = $1;", sessionID)
+	if err != nil {
+		return 0, err
+	}
+
+	var i int
+	if rows.Next() {
+		err = rows.Scan(i)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return i, nil
+}

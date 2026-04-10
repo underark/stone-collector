@@ -69,3 +69,12 @@ func (g *GameService) GetUserState(userID int) (models.State, error) {
 
 	return state, nil
 }
+
+func (g *GameService) GetUserFromSession(sessionID string) (int, error) {
+	id, err := g.s.GetUserFromSession(sessionID)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
