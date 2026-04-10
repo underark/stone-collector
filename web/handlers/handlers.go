@@ -11,53 +11,29 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/underark/stone-collector/internal/models/state"
-	"github.com/underark/stone-collector/internal/models/user"
 	"github.com/underark/stone-collector/internal/service/game"
-	"github.com/underark/stone-collector/web/middleware"
+	"github.com/underark/stone-collector/web/cookies"
 )
 
-func HomeHandler(userID int) func(w http.ResponseWriter, r *http.Request) {
+func HomeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			defer conn.Close(context.Background())
-
-			rows, err := conn.Query(context.Background(), "SELECT sum(amount) AS stones FROM stones WHERE owner_id = $1;", userID)
-			if err != nil {
-				fmt.Printf("Error collecting stone total: %s", err.Error())
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-
-			state, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[state.State])
-			if err != nil {
-				fmt.Printf("Error collecting stone total: %s", err.Error())
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-
-			t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/index.tmpl")
-			if err != nil {
-				fmt.Printf("Error rendering template: %s", err.Error())
-				return
-			}
-			t.ExecuteTemplate(w, "base", state)
+		userID := cookies.GetUserID(r.Context())
+		if userID == nil {
+			http.Redirect(w, r, "/start", http.StatusFound)
+			return
 		}
+
+		state, err := g.GetUserState(userID.(int))
+		t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/index.tmpl")
+		if err != nil {
+			fmt.Printf("Error rendering template: %s", err.Error())
+			return
+		}
+		t.ExecuteTemplate(w, "base", state)
 	}
 }
 
 func StartHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := r.Cookie("stone-game-user")
-	if err == nil {
-		fmt.Println("User already has cookie: redirecting")
-		return
-	}
-
 	conn, err := pgx.Connect(r.Context(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		fmt.Printf("Error connecting to database: %s\n", err.Error())
@@ -118,83 +94,86 @@ func StartHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/home", http.StatusFound)
 }
 
-func TickHandler(g game.GameService) http.HandlerFunc {
+func TickHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		userID := middleware.GetUserID(ctx)
-		err := g.ProcessTicks(userID)
+		userID := cookies.GetUserID(ctx)
+		if userID == nil {
+			http.Redirect(w, r, "/start", http.StatusFound)
+			return
+		}
+
+		err := g.ProcessTicks(userID.(int))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}
 }
 
-func TradeHandler(userID int, tradeID int) func(w http.ResponseWriter, r *http.Request) {
+func TradeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" {
-			conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			defer conn.Close(context.Background())
-
-			tx, err := conn.Begin(context.Background())
-			defer tx.Rollback(context.Background())
-			if err != nil {
-				fmt.Printf("Error creating transaction: %s\n", err.Error())
-				return
-			}
-
-			rows, err := tx.Query(context.Background(), "SELECT * FROM trades WHERE id = $1 FOR UPDATE;", tradeID)
-			if err != nil {
-				fmt.Printf("Error reading trade info: %s\n", err.Error())
-				return
-			}
-			trade, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[state.Trade])
-			if err != nil {
-				fmt.Printf("Error scanning trade info to struct: %s\n", err.Error())
-				return
-			}
-
-			r, err := tx.Exec(context.Background(), "UPDATE stones SET amount = amount - $1 WHERE material = $2 AND owner_id = $3 AND amount >= $1;", trade.Amount, trade.Material, trade.OwnerID)
-			if err != nil {
-				fmt.Printf("Error updating trade owner stone amount: %s\n", err.Error())
-				return
-			} else if r.RowsAffected() == 0 {
-				fmt.Println("Not enough stones: owner")
-				return
-			}
-
-			_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.Amount, trade.Material, userID)
-			if err != nil {
-				fmt.Printf("Error updating trade responder stone amount: %s\n", err.Error())
-				return
-			}
-
-			r, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount - $1 WHERE material = $2 AND owner_id = $3 AND amount >= $1;", trade.AmountReq, trade.MaterialReq, userID)
-			if err != nil {
-				fmt.Printf("Error updating trade responder stone amount 2: %s\n", err.Error())
-				return
-			} else if r.RowsAffected() == 0 {
-				fmt.Println("Not enough stones: responder")
-				return
-			}
-
-			_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.AmountReq, trade.MaterialReq, trade.OwnerID)
-			if err != nil {
-				fmt.Printf("Error updating trade owner stone amount 2: %s\n", err.Error())
-				return
-			}
-
-			err = tx.Commit(context.Background())
-			if err != nil {
-				fmt.Printf("Error comitting trade transaction: %s\n", err.Error())
-				return
-			}
-
-			fmt.Printf("Trade %d successfully commmitted!\n", trade.ID)
+		conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		defer conn.Close(context.Background())
+
+		tx, err := conn.Begin(context.Background())
+		defer tx.Rollback(context.Background())
+		if err != nil {
+			fmt.Printf("Error creating transaction: %s\n", err.Error())
+			return
+		}
+
+		rows, err := tx.Query(context.Background(), "SELECT * FROM trades WHERE id = $1 FOR UPDATE;", tradeID)
+		if err != nil {
+			fmt.Printf("Error reading trade info: %s\n", err.Error())
+			return
+		}
+		trade, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[state.Trade])
+		if err != nil {
+			fmt.Printf("Error scanning trade info to struct: %s\n", err.Error())
+			return
+		}
+
+		r, err := tx.Exec(context.Background(), "UPDATE stones SET amount = amount - $1 WHERE material = $2 AND owner_id = $3 AND amount >= $1;", trade.Amount, trade.Material, trade.OwnerID)
+		if err != nil {
+			fmt.Printf("Error updating trade owner stone amount: %s\n", err.Error())
+			return
+		} else if r.RowsAffected() == 0 {
+			fmt.Println("Not enough stones: owner")
+			return
+		}
+
+		_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.Amount, trade.Material, userID)
+		if err != nil {
+			fmt.Printf("Error updating trade responder stone amount: %s\n", err.Error())
+			return
+		}
+
+		r, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount - $1 WHERE material = $2 AND owner_id = $3 AND amount >= $1;", trade.AmountReq, trade.MaterialReq, userID)
+		if err != nil {
+			fmt.Printf("Error updating trade responder stone amount 2: %s\n", err.Error())
+			return
+		} else if r.RowsAffected() == 0 {
+			fmt.Println("Not enough stones: responder")
+			return
+		}
+
+		_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.AmountReq, trade.MaterialReq, trade.OwnerID)
+		if err != nil {
+			fmt.Printf("Error updating trade owner stone amount 2: %s\n", err.Error())
+			return
+		}
+
+		err = tx.Commit(context.Background())
+		if err != nil {
+			fmt.Printf("Error comitting trade transaction: %s\n", err.Error())
+			return
+		}
+
+		fmt.Printf("Trade %d successfully commmitted!\n", trade.ID)
 	}
 }
 

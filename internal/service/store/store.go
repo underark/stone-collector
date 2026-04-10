@@ -66,3 +66,21 @@ func UpdateStones(tx pgx.Tx, userID int, drops []models.Drop) error {
 	}
 	return nil
 }
+
+func (s *Store) GetTotalStones(userID int) (models.State, error) {
+	rows, err := s.pool.Query(context.Background(), "SELECT sum(amount) AS stones FROM stones WHERE owner_id = $1;", userID)
+	defer func() {
+		rows.Conn().Close(context.Background())
+		rows.Close()
+	}()
+
+	if err != nil {
+		return models.State{}, err
+	}
+
+	state, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.State])
+	if err != nil {
+		return models.State{}, err
+	}
+	return state, nil
+}

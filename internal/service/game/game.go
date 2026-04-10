@@ -4,6 +4,7 @@ package game
 import (
 	"context"
 
+	"github.com/underark/stone-collector/internal/models"
 	"github.com/underark/stone-collector/internal/models/drops"
 	"github.com/underark/stone-collector/internal/service/store"
 	"github.com/underark/stone-collector/internal/service/ticks"
@@ -13,8 +14,8 @@ type GameService struct {
 	s store.Store
 }
 
-func New(store store.Store) GameService {
-	return GameService{
+func New(store store.Store) *GameService {
+	return &GameService{
 		store,
 	}
 }
@@ -58,4 +59,13 @@ func (g *GameService) ProcessTicks(userID int) error {
 		return err
 	}
 	return nil
+}
+
+func (g *GameService) GetUserState(userID int) (models.State, error) {
+	state, err := g.s.GetTotalStones(userID)
+	if err != nil {
+		return models.State{}, err
+	}
+
+	return state, nil
 }

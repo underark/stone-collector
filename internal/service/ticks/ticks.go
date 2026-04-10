@@ -1,3 +1,4 @@
+// Package ticks implements logic for game ticks
 package ticks
 
 import (

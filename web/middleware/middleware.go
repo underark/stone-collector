@@ -10,14 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type k string
-
-// GetVal is used to retrieve a value from the context
-// as we aren't exporting type 'k' so as to avoid collisions with other packages
-func GetUserID(ctx context.Context) int {
-	return ctx.Value(k("userID")).(int)
-}
-
 func CheckCookie(route http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := pgx.Connect(r.Context(), os.Getenv("DATABASE_URL"))

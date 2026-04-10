@@ -15,7 +15,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /tick", m.CheckCookie(http.HandlerFunc(h.TickHandler)))
+	mux.Handle("GET /tick", m.CheckCookie(h.TickHandler())
 	mux.Handle("GET /start", http.HandlerFunc(h.StartHandler))
 	http.HandleFunc("/home", h.HomeHandler(1))
 	http.HandleFunc("/trade", h.TradeHandler(4, 1))
