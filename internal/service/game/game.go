@@ -24,10 +24,10 @@ func New(store store.Store) *GameService {
 
 func (g *GameService) InsertNewUser() (string, error) {
 	tx, err := g.s.GetTx()
+	defer tx.Rollback(context.Background())
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(context.Background())
 
 	id := makeSessionID()
 
@@ -48,6 +48,30 @@ func (g *GameService) InsertNewUser() (string, error) {
 		return "", err
 	}
 	return id, nil
+}
+
+func (g *GameService) ExecuteTrade(userID int, tradeID string) error {
+	tx, err := g.s.GetTx()
+	defer tx.Rollback(context.Background())
+	if err != nil {
+		return err
+	}
+
+	trade, err := store.GetTradesForUpdate(tx, tradeID)
+	if err != nil {
+		return err
+	}
+
+	err = store.TryTrade(tx, userID, trade)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (g *GameService) ProcessTicks(userID int) error {

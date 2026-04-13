@@ -3,6 +3,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 
@@ -46,6 +47,47 @@ func GetTicksForUpdate(tx pgx.Tx, userID int) (string, error) {
 	}
 
 	return s, nil
+}
+
+func GetTradesForUpdate(tx pgx.Tx, tradeID string) (models.Trade, error) {
+	rows, err := tx.Query(context.Background(), "SELECT * FROM trades WHERE id = $1 FOR UPDATE;", tradeID)
+	if err != nil {
+		return models.Trade{}, err
+	}
+	trade, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.Trade])
+	if err != nil {
+		return models.Trade{}, err
+	}
+
+	return trade, nil
+}
+
+func TryTrade(tx pgx.Tx, userID int, trade models.Trade) error {
+	r, err := tx.Exec(context.Background(), "UPDATE stones SET amount = amount - $1 WHERE material = $2 AND owner_id = $3 AND amount >= $1;", trade.Amount, trade.Material, trade.OwnerID)
+	if err != nil {
+		return err
+	} else if r.RowsAffected() == 0 {
+		return errors.New("error: not enough owner stones")
+	}
+
+	r, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount - $1 WHERE material = $2 AND owner_id = $3 AND amount >= $1;", trade.AmountReq, trade.MaterialReq, userID)
+	if err != nil {
+		return err
+	} else if r.RowsAffected() == 0 {
+		return errors.New("error: not enough responder stones")
+	}
+
+	_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.Amount, trade.Material, userID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.AmountReq, trade.MaterialReq, trade.OwnerID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func InsertNewUser(tx pgx.Tx, session string) (int, error) {

@@ -38,5 +38,5 @@ func (r *Router) Serve() error {
 
 func attachHandlers(r *Router) {
 	r.mux.Handle("GET /tick", handlers.TickHandler(r.g))
-	r.mux.Handle("GET /start", http.HandlerFunc(handlers.StartHandler))
+	r.mux.Handle("GET /start", handlers.StartHandler(r.g))
 }
