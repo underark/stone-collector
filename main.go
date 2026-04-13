@@ -2,11 +2,10 @@ package main
 
 import (
 	"log"
-	"net/http"
+	"os"
 
 	"github.com/joho/godotenv"
-	h "github.com/underark/stone-collector/web/handlers"
-	m "github.com/underark/stone-collector/web/middleware"
+	"github.com/underark/stone-collector/web/router"
 )
 
 func main() {
@@ -14,11 +13,9 @@ func main() {
 		log.Fatalf("Error loading environment variables: %v", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.Handle("GET /tick", m.CheckCookie(h.TickHandler())
-	mux.Handle("GET /start", http.HandlerFunc(h.StartHandler))
-	http.HandleFunc("/home", h.HomeHandler(1))
-	http.HandleFunc("/trade", h.TradeHandler(4, 1))
-	http.HandleFunc("/web/static/", h.StaticHandler)
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	r := router.New()
+	err := r.Serve()
+	if err != nil {
+		os.Exit(1)
+	}
 }

@@ -12,12 +12,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/underark/stone-collector/internal/service/game"
-	"github.com/underark/stone-collector/web/cookies"
+	"github.com/underark/stone-collector/web/inject"
 )
 
 func HomeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := cookies.GetUserID(r.Context())
+		userID := inject.GetUserID(r.Context())
 		if userID == nil {
 			http.Redirect(w, r, "/start", http.StatusFound)
 			return
@@ -97,7 +97,7 @@ func StartHandler(w http.ResponseWriter, r *http.Request) {
 func TickHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		userID := cookies.GetUserID(ctx)
+		userID := inject.GetUserID(ctx)
 		if userID == nil {
 			http.Redirect(w, r, "/start", http.StatusFound)
 			return

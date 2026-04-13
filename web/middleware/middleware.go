@@ -4,25 +4,30 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/underark/stone-collector/internal/service/game"
 	"github.com/underark/stone-collector/web/inject"
 )
 
-func CheckCookie(route http.Handler, g *game.GameService) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie("stone-game-user")
-		if err != nil {
-			route.ServeHTTP(w, r)
-			return
-		}
+type authDB interface {
+	GetUserFromSession(session string) (int, error)
+}
 
-		id, err := g.GetUserFromSession(c.Value)
-		if err != nil {
-			route.ServeHTTP(w, r)
-			return
-		}
+func NewAuthMiddleware(db authDB) func(http.Handler) http.Handler {
+	return func(route http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c, err := r.Cookie("stone-game-user")
+			if err != nil {
+				route.ServeHTTP(w, r)
+				return
+			}
 
-		r = inject.UserID(r, id)
-		route.ServeHTTP(w, r)
-	})
+			id, err := db.GetUserFromSession(c.Value)
+			if err != nil {
+				route.ServeHTTP(w, r)
+				return
+			}
+
+			r = inject.UserID(r, id)
+			route.ServeHTTP(w, r)
+		})
+	}
 }
