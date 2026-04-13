@@ -3,8 +3,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -33,65 +31,23 @@ func HomeHandler(g *game.GameService) http.HandlerFunc {
 	}
 }
 
-func StartHandler(w http.ResponseWriter, r *http.Request) {
-	conn, err := pgx.Connect(r.Context(), os.Getenv("DATABASE_URL"))
-	if err != nil {
-		fmt.Printf("Error connecting to database: %s\n", err.Error())
-		return
-	}
-	defer conn.Close(r.Context())
-	tx, err := conn.Begin(r.Context())
-	if err != nil {
-		fmt.Printf("Error getting transaction: %s\n", err.Error())
-		return
-	}
-	defer tx.Rollback(r.Context())
-
-	b := make([]byte, 12)
-	rand.Read(b)
-	val := base64.RawStdEncoding.EncodeToString(b)
-
-	drops := game.Droppable()
-
-	_, err = tx.Exec(r.Context(), "INSERT INTO users (name, last_tick, session_id) VALUES ($1, NOW() at time zone 'utc', $2);", "newUser", val)
-	if err != nil {
-		fmt.Printf("Error writing user info to database: %s\n", err.Error())
-		return
-	}
-
-	rows, err := tx.Query(r.Context(), "SELECT id FROM users WHERE session_id = $1;", val)
-	if err != nil {
-		fmt.Printf("Error getting new user from db: %s\n", err.Error())
-		return
-	}
-	u, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByNameLax[user.User])
-	if err != nil {
-		fmt.Printf("Error reading user to struct: %s\n", err.Error())
-		return
-	}
-
-	for _, d := range drops {
-		_, err = tx.Exec(r.Context(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", u.ID, d, 0)
+func StartHandler(g *game.GameService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		session, err := g.InsertNewUser()
 		if err != nil {
-			fmt.Printf("Error creating stones in for new user: %s\n", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-	}
-	err = tx.Commit(r.Context())
-	if err != nil {
-		fmt.Printf("Error committing to db: %s\n", err.Error())
-		return
-	}
 
-	c := http.Cookie{
-		Name:     "stone-game-user",
-		Value:    val,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		c := http.Cookie{
+			Name:     "stone-game-user",
+			Value:    session,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		}
+		http.SetCookie(w, &c)
+		http.Redirect(w, r, "/home", http.StatusFound)
 	}
-	http.SetCookie(w, &c)
-	fmt.Printf("Wrote cookie successfully: %s\n", val)
-	http.Redirect(w, r, "/home", http.StatusFound)
 }
 
 func TickHandler(g *game.GameService) http.HandlerFunc {

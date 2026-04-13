@@ -3,6 +3,8 @@ package game
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/underark/stone-collector/internal/models"
 	"github.com/underark/stone-collector/internal/models/drops"
@@ -18,6 +20,34 @@ func New(store store.Store) *GameService {
 	return &GameService{
 		store,
 	}
+}
+
+func (g *GameService) InsertNewUser() (string, error) {
+	tx, err := g.s.GetTx()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(context.Background())
+
+	id := makeSessionID()
+
+	user, err := store.InsertNewUser(tx, id)
+	if err != nil {
+		return "", err
+	}
+
+	drops := drops.Droppable()
+
+	err = store.InsertNewUserStones(tx, drops, user)
+	if err != nil {
+		return "", err
+	}
+
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func (g *GameService) ProcessTicks(userID int) error {
@@ -68,4 +98,11 @@ func (g *GameService) GetUserState(userID int) (models.State, error) {
 	}
 
 	return state, nil
+}
+
+func makeSessionID() string {
+	b := make([]byte, 12)
+	rand.Read(b)
+	val := base64.RawStdEncoding.EncodeToString(b)
+	return val
 }

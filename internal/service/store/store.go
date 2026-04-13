@@ -48,6 +48,29 @@ func GetTicksForUpdate(tx pgx.Tx, userID int) (string, error) {
 	return s, nil
 }
 
+func InsertNewUser(tx pgx.Tx, session string) (int, error) {
+	r, err := tx.Query(context.Background(), "INSERT INTO users (name, last_tick, session_id) VALUES ($1, NOW() at time zone 'utc', $2) RETURNING id;", "newUser", session)
+	if err != nil {
+		return 0, err
+	}
+
+	i, err := pgx.CollectOneRow(r, pgx.RowTo[int])
+	if err != nil {
+		return 0, err
+	}
+	return i, nil
+}
+
+func InsertNewUserStones(tx pgx.Tx, drops []string, id int) error {
+	for _, d := range drops {
+		_, err := tx.Exec(context.Background(), "INSERT INTO stones (owner_id, material, amount) VALUES ($1, $2, $3);", id, d, 0)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func UpdateLastTicks(tx pgx.Tx, userID int, newTicks string) error {
 	_, err := tx.Exec(context.Background(), "UPDATE users SET last_tick = $2 WHERE id = $1", userID, newTicks)
 	if err != nil {
@@ -91,12 +114,9 @@ func (s Store) GetUserFromSession(sessionID string) (int, error) {
 		return 0, err
 	}
 
-	var i int
-	if rows.Next() {
-		err = rows.Scan(i)
-		if err != nil {
-			return 0, err
-		}
+	i, err := pgx.CollectOneRow(rows, pgx.RowTo[int])
+	if err != nil {
+		return 0, err
 	}
 
 	return i, nil
