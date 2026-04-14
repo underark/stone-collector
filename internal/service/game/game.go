@@ -51,7 +51,7 @@ func (g *GameService) InsertNewUser() (string, error) {
 	return id, nil
 }
 
-func (g *GameService) ExecuteTrade(userID int, tradeID string) error {
+func (g *GameService) ExecuteTrade(userID int, tradeID int) error {
 	tx, err := g.s.GetTx()
 	defer tx.Rollback(context.Background())
 	if err != nil {
@@ -65,6 +65,11 @@ func (g *GameService) ExecuteTrade(userID int, tradeID string) error {
 	}
 
 	err = store.TryTrade(tx, userID, trade)
+	if err != nil {
+		return err
+	}
+
+	err = store.CloseTrade(tx, tradeID)
 	if err != nil {
 		return err
 	}

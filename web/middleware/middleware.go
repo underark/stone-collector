@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -21,17 +22,19 @@ func NewAuthMiddleware(db authDB, c *sessions.CookieStore) func(http.Handler) ht
 				return
 			}
 
-			userID, ok := session.Values["user_id"]
+			sessionID, ok := session.Values["session_id"]
 			if !ok {
 				route.ServeHTTP(w, r)
 				return
 			}
 
-			id, err := db.GetUserFromSession(userID.(string))
+			id, err := db.GetUserFromSession(sessionID.(string))
 			if err != nil {
 				route.ServeHTTP(w, r)
 				return
 			}
+
+			fmt.Printf("User id is %d\n", id)
 
 			r = inject.UserID(r, id)
 			route.ServeHTTP(w, r)

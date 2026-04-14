@@ -53,7 +53,7 @@ func GetTicksForUpdate(tx pgx.Tx, userID int) (string, error) {
 	return s, nil
 }
 
-func GetTradesForUpdate(tx pgx.Tx, tradeID string) (models.Trade, error) {
+func GetTradesForUpdate(tx pgx.Tx, tradeID int) (models.Trade, error) {
 	rows, err := tx.Query(context.Background(), "SELECT * FROM trades WHERE id = $1 FOR UPDATE;", tradeID)
 	if err != nil {
 		return models.Trade{}, err
@@ -87,6 +87,15 @@ func TryTrade(tx pgx.Tx, userID int, trade models.Trade) error {
 	}
 
 	_, err = tx.Exec(context.Background(), "UPDATE stones SET amount = amount + $1 WHERE material = $2 AND owner_id = $3;", trade.AmountReq, trade.MaterialReq, trade.OwnerID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CloseTrade(tx pgx.Tx, tradeID int) error {
+	_, err := tx.Exec(context.Background(), "DELETE FROM stones WHERE id = $1;", tradeID)
 	if err != nil {
 		return err
 	}

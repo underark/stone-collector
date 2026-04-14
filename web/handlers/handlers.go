@@ -2,10 +2,10 @@
 package handlers
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gorilla/sessions"
 	"github.com/underark/stone-collector/internal/models"
@@ -31,8 +31,6 @@ func HomeHandler(g *game.GameService) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		fmt.Println(state)
 
 		t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/index.tmpl")
 		if err != nil {
@@ -86,7 +84,7 @@ func StartHandler(g *game.GameService, c *sessions.CookieStore) http.HandlerFunc
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		session.Values["user_id"] = sessionID
+		session.Values["session_id"] = sessionID
 		session.Save(r, w)
 
 		http.Redirect(w, r, "/home", http.StatusFound)
@@ -117,11 +115,16 @@ func TradeHandler(g *game.GameService) http.HandlerFunc {
 			return
 		}
 
-		tradeID := r.FormValue("id")
-		fmt.Printf("Trade id is: %s\n", tradeID)
-		err := g.ExecuteTrade(userID.(int), tradeID)
+		formVal := r.FormValue("id")
+		id, err := strconv.Atoi(formVal)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		err = g.ExecuteTrade(userID.(int), id)
+		if err != nil {
+			http.Redirect(w, r, "/trade", http.StatusFound)
 			return
 		}
 
@@ -153,7 +156,6 @@ func TradeMenuHandler(g *game.GameService) http.HandlerFunc {
 
 		t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/trades.tmpl")
 		if err != nil {
-			fmt.Println(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -163,7 +165,6 @@ func TradeMenuHandler(g *game.GameService) http.HandlerFunc {
 
 func StaticHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile(r.URL.Path[1:])
-	fmt.Println(r.URL.Path[1:])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
