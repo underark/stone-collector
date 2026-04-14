@@ -1,0 +1,32 @@
+{{ define "content" }}
+<form action="/create" method="POST">
+    <div class="field">
+        <label for="material">Offer: </label>
+        <select name="material" id="material">
+            {{ range .Stones }}
+                <option value={{ .Material }}>{{ .Material }}</option>
+            {{ end }}
+        </select>
+    </div>
+
+    <div class="field">
+        <label for="amount">Amount: </label>
+        <input type="number" name="amount" id="amount">
+    </div>
+    
+    <div class="field">
+        <label for="material-req">Request: </label>
+        <select name="material-req" id="material-req">
+            {{ range .Stones }}
+                <option value={{ .Material }}>{{ .Material }}</option>
+            {{ end }}
+        </select>
+    </div>
+
+    <div class="field">
+        <label for="amount-req">Amount: </label>
+        <input type="number" name="amount-req" id="amount-req">
+    </div>
+    <input type="submit" value="Create">
+</form>
+{{ end }}

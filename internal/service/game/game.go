@@ -138,13 +138,22 @@ func (g *GameService) GetUserState(userID int) (models.State, error) {
 	return state, nil
 }
 
-func (g *GameService) GetTrades() ([]models.Trade, error) {
-	trades, err := g.s.GetTrades()
+func (g *GameService) GetTrades(userID int) ([]models.Trade, error) {
+	trades, err := g.s.GetTrades(userID)
 	if err != nil {
 		return make([]models.Trade, 0), err
 	}
 
 	return trades, nil
+}
+
+func (g *GameService) CreateTrade(ownerID int, offerMat string, offerAm int, reqMat string, reqAm int) error {
+	err := g.s.CreateTrade(ownerID, offerMat, offerAm, reqMat, reqAm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func makeSessionID() string {

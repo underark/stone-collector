@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
 	"os"
@@ -107,6 +108,66 @@ func TickHandler(g *game.GameService) http.HandlerFunc {
 	}
 }
 
+func CreateTradeMenuHandler(g *game.GameService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := inject.GetUserID(r.Context())
+		if userID == nil {
+			http.Redirect(w, r, "/start", http.StatusFound)
+			return
+		}
+
+		state, err := g.GetUserState(userID.(int))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/create.tmpl")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		err = t.ExecuteTemplate(w, "base", state)
+		if err != nil {
+			fmt.Println(err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func CreateTradeHandler(g *game.GameService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := inject.GetUserID(r.Context())
+		if userID == nil {
+			http.Redirect(w, r, "/start", http.StatusFound)
+			return
+		}
+
+		offerMaterial := r.FormValue("material")
+		offerAmount := r.FormValue("amount")
+		offerAmountInt, err := strconv.Atoi(offerAmount)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		requestMaterial := r.FormValue("material-req")
+		requestAmount := r.FormValue("amount-req")
+		requestAmountInt, err := strconv.Atoi(requestAmount)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		err = g.CreateTrade(userID.(int), offerMaterial, offerAmountInt, requestMaterial, requestAmountInt)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/trade", http.StatusFound)
+	}
+}
+
 func TradeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := inject.GetUserID(r.Context())
@@ -146,7 +207,7 @@ func TradeMenuHandler(g *game.GameService) http.HandlerFunc {
 			return
 		}
 
-		trades, err := g.GetTrades()
+		trades, err := g.GetTrades(userID.(int))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

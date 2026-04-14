@@ -49,5 +49,7 @@ func attachHandlers(r *Router) {
 	r.mux.Handle("GET /inventory", handlers.InventoryHandler(r.g))
 	r.mux.Handle("GET /trade", handlers.TradeMenuHandler(r.g))
 	r.mux.Handle("POST /trade", handlers.TradeHandler(r.g))
+	r.mux.Handle("GET /create", handlers.CreateTradeMenuHandler(r.g))
+	r.mux.Handle("POST /create", handlers.CreateTradeHandler(r.g))
 	r.mux.Handle("/web/static/", http.HandlerFunc(handlers.StaticHandler))
 }

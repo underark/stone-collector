@@ -94,6 +94,15 @@ func TryTrade(tx pgx.Tx, userID int, trade models.Trade) error {
 	return nil
 }
 
+func (s Store) CreateTrade(ownerID int, offerMat string, offerAm int, reqMat string, reqAm int) error {
+	_, err := s.pool.Exec(context.Background(), "INSERT INTO trades (owner_id, material, amount, material_req, amount_req) VALUES ($1, $2, $3, $4, $5);", ownerID, offerMat, offerAm, reqMat, reqAm)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CloseTrade(tx pgx.Tx, tradeID int) error {
 	_, err := tx.Exec(context.Background(), "DELETE FROM stones WHERE id = $1;", tradeID)
 	if err != nil {
@@ -145,8 +154,8 @@ func UpdateStones(tx pgx.Tx, userID int, drops []models.Drop) error {
 	return nil
 }
 
-func (s Store) GetTrades() ([]models.Trade, error) {
-	rows, err := s.pool.Query(context.Background(), "SELECT * FROM trades;")
+func (s Store) GetTrades(userID int) ([]models.Trade, error) {
+	rows, err := s.pool.Query(context.Background(), "SELECT * FROM trades WHERE owner_id != $1;", userID)
 	if err != nil {
 		return make([]models.Trade, 0), err
 	}
