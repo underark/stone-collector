@@ -1,0 +1,14 @@
+{{ define "content" }}
+<table>
+    <tr>
+        <th>Material</th>
+        <th>Amount</th>
+    </tr>
+    {{ range .Stones }}
+    <tr>
+        <td>{{ .Material }}</td>
+        <td>{{ .Amount }}</td>
+    </tr>
+    {{ end }}
+</table>
+{{ end }}

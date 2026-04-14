@@ -16,6 +16,10 @@ type Store struct {
 	pool *pgxpool.Pool
 }
 
+func (s Store) CloseStore() {
+	s.pool.Close()
+}
+
 func New() (Store, error) {
 	s, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -132,22 +136,48 @@ func UpdateStones(tx pgx.Tx, userID int, drops []models.Drop) error {
 	return nil
 }
 
-func (s Store) GetTotalStones(userID int) (models.State, error) {
-	rows, err := s.pool.Query(context.Background(), "SELECT sum(amount) AS stones FROM stones WHERE owner_id = $1;", userID)
-	defer func() {
-		rows.Conn().Close(context.Background())
-		rows.Close()
-	}()
+func (s Store) GetTrades() ([]models.Trade, error) {
+	rows, err := s.pool.Query(context.Background(), "SELECT * FROM trades;")
+	if err != nil {
+		return make([]models.Trade, 0), err
+	}
 
+	trades, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.Trade])
+	if err != nil {
+		return make([]models.Trade, 0), err
+	}
+
+	return trades, nil
+}
+
+func (s Store) GetTotalStones(userID int) (models.State, error) {
+	rows, err := s.pool.Query(context.Background(), "SELECT sum(amount) AS total FROM stones WHERE owner_id = $1;", userID)
 	if err != nil {
 		return models.State{}, err
 	}
 
-	state, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.State])
+	state, err := pgx.CollectOneRow(rows, pgx.RowToStructByNameLax[models.State])
 	if err != nil {
 		return models.State{}, err
 	}
 	return state, nil
+}
+
+func (s Store) GetStonesByType(userID int) (stones []models.Inventory, err error) {
+	stones = make([]models.Inventory, 0)
+	rows, err := s.pool.Query(context.Background(), "SELECT material, amount FROM stones WHERE owner_id = $1;", userID)
+	if err != nil {
+		return
+	}
+
+	drops, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.Inventory])
+	if err != nil {
+		return
+	}
+
+	stones = append(stones, drops...)
+
+	return
 }
 
 func (s Store) GetUserFromSession(sessionID string) (int, error) {

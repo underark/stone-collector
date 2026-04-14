@@ -1,0 +1,12 @@
+{{ define "content" }}
+    {{ range .Trades }}
+        <div class="trade">
+            <form action="/trade" method="POST">
+                <p>Offering: {{ .Material }} {{ .Amount }}</p>
+                <p>For: {{ .MaterialReq }} {{ .AmountReq }}</p>
+                <input type="submit" value="Trade">
+                <input type="hidden" name="id" value={{ .ID }}>
+            </form>
+        </div>
+    {{ end }}
+{{ end }}

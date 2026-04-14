@@ -1,12 +1,14 @@
 package models
 
 type Drop struct {
-	Material string
-	Amount   int
+	Material string `json:"material"`
+	Amount   int    `json:"amount"`
 }
 
 type State struct {
-	Stones int `json:"stones"`
+	Total  int         `json:"total"`
+	Stones []Inventory `json:"stones"`
+	Trades []Trade
 }
 
 type Trade struct {
@@ -19,10 +21,8 @@ type Trade struct {
 }
 
 type Inventory struct {
-	ID       int    `json:"id"`
-	OwnerID  int    `json:"ownerID"`
-	Material string `json:"material"`
-	Amount   int    `json:"amount"`
+	Material string
+	Amount   int64
 }
 
 const (

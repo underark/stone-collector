@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 
 	"github.com/underark/stone-collector/internal/models"
 	"github.com/underark/stone-collector/internal/models/drops"
@@ -59,6 +60,7 @@ func (g *GameService) ExecuteTrade(userID int, tradeID string) error {
 
 	trade, err := store.GetTradesForUpdate(tx, tradeID)
 	if err != nil {
+		fmt.Println(err.Error())
 		return err
 	}
 
@@ -121,7 +123,23 @@ func (g *GameService) GetUserState(userID int) (models.State, error) {
 		return models.State{}, err
 	}
 
+	stones, err := g.s.GetStonesByType(userID)
+	if err != nil {
+		return models.State{}, err
+	}
+
+	state.Stones = stones
+
 	return state, nil
+}
+
+func (g *GameService) GetTrades() ([]models.Trade, error) {
+	trades, err := g.s.GetTrades()
+	if err != nil {
+		return make([]models.Trade, 0), err
+	}
+
+	return trades, nil
 }
 
 func makeSessionID() string {

@@ -8,7 +8,25 @@
     <title>Document</title>
 </head>
 <body>
+    <div id="top">
+        {{ template "top" . }}
+    </div>
+    <div id="content">
         {{ template "content" . }}
+    </div>
+    <div id="bottom">
+        {{ template "bottom" . }}
+    </div>
 </body>
 </html>
+{{ end }}
+
+{{ define "bottom" }}
+    {{ .Total }}
+{{ end }}
+
+{{ define "top" }}
+<nav>
+    <a href="/home">Home</a>
+</nav>
 {{ end }}
