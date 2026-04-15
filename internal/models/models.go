@@ -25,6 +25,11 @@ type Inventory struct {
 	Amount   int64
 }
 
+type Session struct {
+	ID            int
+	SessionExpiry string
+}
+
 const (
 	Limestone = "Limestone"
 	Basalt    = "Basalt"

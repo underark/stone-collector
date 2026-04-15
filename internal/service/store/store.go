@@ -4,8 +4,11 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -112,8 +115,13 @@ func CloseTrade(tx pgx.Tx, tradeID int) error {
 	return nil
 }
 
-func InsertNewUser(tx pgx.Tx, session string) (int, error) {
-	r, err := tx.Query(context.Background(), "INSERT INTO users (name, last_tick, session_id) VALUES ($1, NOW() at time zone 'utc', $2) RETURNING id;", "newUser", session)
+func InsertNewUser(tx pgx.Tx, session string, maxAge int) (int, error) {
+	expiry, err := maxAgeToTimestamp(maxAge)
+	if err != nil {
+		return 0, err
+	}
+
+	r, err := tx.Query(context.Background(), "INSERT INTO users (name, last_tick, session_id, session_expiry) VALUES ($1, NOW() at time zone 'utc', $2, $3) RETURNING id;", "newUser", session, expiry)
 	if err != nil {
 		return 0, err
 	}
@@ -198,16 +206,28 @@ func (s Store) GetStonesByType(userID int) (stones []models.Inventory, err error
 	return
 }
 
-func (s Store) GetUserFromSession(sessionID string) (int, error) {
-	rows, err := s.pool.Query(context.Background(), "SELECT id FROM users WHERE session_id = $1;", sessionID)
+func (s Store) GetUserFromSession(sessionID string) (models.Session, error) {
+	rows, err := s.pool.Query(context.Background(), "SELECT id, session_expiry::text FROM users WHERE session_id = $1;", sessionID)
 	if err != nil {
-		return 0, err
+		return models.Session{}, err
 	}
 
-	i, err := pgx.CollectOneRow(rows, pgx.RowTo[int])
+	session, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.Session])
 	if err != nil {
-		return 0, err
+		fmt.Println(err.Error())
+		return models.Session{}, err
 	}
 
-	return i, nil
+	return session, nil
+}
+
+func maxAgeToTimestamp(maxAge int) (string, error) {
+	s := strconv.Itoa(maxAge) + "s"
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return "", err
+	}
+	expiry := time.Now().UTC().Add(d)
+
+	return expiry.Format(time.DateTime), nil
 }

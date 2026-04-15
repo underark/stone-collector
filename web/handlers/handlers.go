@@ -74,17 +74,18 @@ func StartHandler(g *game.GameService, c *sessions.CookieStore) http.HandlerFunc
 			return
 		}
 
-		sessionID, err := g.InsertNewUser()
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
 		session, err := c.Get(r, "stone-collector")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+
+		sessionID, err := g.InsertNewUser(session.Options.MaxAge)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
 		session.Values["session_id"] = sessionID
 		session.Save(r, w)
 

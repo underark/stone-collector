@@ -26,6 +26,12 @@ func New() *Router {
 	}
 
 	cookieStore := sessions.NewCookieStore([]byte(os.Getenv("COOKIE_SECRET")))
+	cookieStore.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 7,
+		Secure:   true,
+		HttpOnly: true,
+	}
 
 	r := &Router{
 		mux:            http.NewServeMux(),

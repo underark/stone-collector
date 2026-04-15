@@ -4,13 +4,15 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/sessions"
+	"github.com/underark/stone-collector/internal/models"
 	"github.com/underark/stone-collector/web/inject"
 )
 
 type authDB interface {
-	GetUserFromSession(session string) (int, error)
+	GetUserFromSession(session string) (models.Session, error)
 }
 
 func NewAuthMiddleware(db authDB, c *sessions.CookieStore) func(http.Handler) http.Handler {
@@ -28,16 +30,24 @@ func NewAuthMiddleware(db authDB, c *sessions.CookieStore) func(http.Handler) ht
 				return
 			}
 
-			id, err := db.GetUserFromSession(sessionID.(string))
+			s, err := db.GetUserFromSession(sessionID.(string))
 			if err != nil {
-				route.ServeHTTP(w, r)
 				return
 			}
 
-			fmt.Printf("User id is %d\n", id)
+			fmt.Printf("User id is %d\n", s.ID)
 
-			r = inject.UserID(r, id)
+			r = inject.UserID(r, s.ID)
 			route.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isExpired(expiry string) (bool, error) {
+	e, err := time.Parse(time.DateTime, expiry)
+	if err != nil {
+		return true, err
+	}
+
+	return time.Now().UTC().After(e), nil
 }

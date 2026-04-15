@@ -23,7 +23,7 @@ func New(store store.Store) *GameService {
 	}
 }
 
-func (g *GameService) InsertNewUser() (string, error) {
+func (g *GameService) InsertNewUser(maxAge int) (string, error) {
 	tx, err := g.s.GetTx()
 	defer tx.Rollback(context.Background())
 	if err != nil {
@@ -32,7 +32,7 @@ func (g *GameService) InsertNewUser() (string, error) {
 
 	id := makeSessionID()
 
-	user, err := store.InsertNewUser(tx, id)
+	user, err := store.InsertNewUser(tx, id, maxAge)
 	if err != nil {
 		return "", err
 	}
