@@ -13,10 +13,11 @@ import (
 )
 
 type Router struct {
-	mux            *http.ServeMux
-	g              *game.GameService
-	cookieStore    *sessions.CookieStore
-	authMiddleware func(http.Handler) http.Handler
+	mux             *http.ServeMux
+	g               *game.GameService
+	cookieStore     *sessions.CookieStore
+	authMiddleware  func(http.Handler) http.Handler
+	stateMiddleware func(http.Handler) http.Handler
 }
 
 func New() *Router {
@@ -24,6 +25,8 @@ func New() *Router {
 	if err != nil {
 		log.Fatalf("Cannot initialize store: %s\n", err.Error())
 	}
+
+	gameService := game.New(store)
 
 	cookieStore := sessions.NewCookieStore([]byte(os.Getenv("COOKIE_SECRET")))
 	cookieStore.Options = &sessions.Options{
@@ -34,10 +37,11 @@ func New() *Router {
 	}
 
 	r := &Router{
-		mux:            http.NewServeMux(),
-		g:              game.New(store),
-		cookieStore:    cookieStore,
-		authMiddleware: middleware.NewAuthMiddleware(store, cookieStore),
+		mux:             http.NewServeMux(),
+		g:               gameService,
+		cookieStore:     cookieStore,
+		authMiddleware:  middleware.NewAuthMiddleware(store, cookieStore),
+		stateMiddleware: middleware.NewStateMiddleware(gameService),
 	}
 
 	attachHandlers(r)
@@ -45,7 +49,7 @@ func New() *Router {
 }
 
 func (r *Router) Serve() error {
-	return http.ListenAndServe(":8080", r.authMiddleware(r.mux))
+	return http.ListenAndServe(":8080", r.authMiddleware(r.stateMiddleware(r.mux)))
 }
 
 func attachHandlers(r *Router) {

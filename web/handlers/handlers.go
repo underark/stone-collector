@@ -4,37 +4,27 @@ package handlers
 import (
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 
 	"github.com/gorilla/sessions"
-	"github.com/underark/stone-collector/internal/models"
 	"github.com/underark/stone-collector/internal/service/game"
 	"github.com/underark/stone-collector/web/inject"
 )
 
-type data struct {
-	route []string
-	state models.State
-}
-
 func HomeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
-			return
-		}
-
-		state, err := g.GetUserState(userID.(int))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/index.tmpl")
 		if err != nil {
+			log.Printf("Error parsing /home template: %s\n", err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -44,20 +34,15 @@ func HomeHandler(g *game.GameService) http.HandlerFunc {
 
 func InventoryHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
-			return
-		}
-
-		state, err := g.GetUserState(userID.(int))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		t, err := template.ParseFiles("./web/templates/base.tmpl", "./web/templates/inventory.tmpl")
 		if err != nil {
+			log.Printf("Error parsing /inventory template: %s\n", err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -68,8 +53,8 @@ func InventoryHandler(g *game.GameService) http.HandlerFunc {
 
 func StartHandler(g *game.GameService, c *sessions.CookieStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID != nil {
+		_, ok := inject.GetState(r.Context())
+		if ok {
 			http.Redirect(w, r, "/home", http.StatusFound)
 			return
 		}
@@ -95,14 +80,13 @@ func StartHandler(g *game.GameService, c *sessions.CookieStore) http.HandlerFunc
 
 func TickHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		userID := inject.GetUserID(ctx)
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
 			return
 		}
 
-		err := g.ProcessTicks(userID.(int))
+		err := g.ProcessTicks(state.ID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
@@ -111,15 +95,9 @@ func TickHandler(g *game.GameService) http.HandlerFunc {
 
 func CreateTradeMenuHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
-			return
-		}
-
-		state, err := g.GetUserState(userID.(int))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -139,8 +117,8 @@ func CreateTradeMenuHandler(g *game.GameService) http.HandlerFunc {
 
 func CreateTradeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
 			return
 		}
@@ -160,7 +138,7 @@ func CreateTradeHandler(g *game.GameService) http.HandlerFunc {
 			return
 		}
 
-		err = g.CreateTrade(userID.(int), offerMaterial, offerAmountInt, requestMaterial, requestAmountInt)
+		err = g.CreateTrade(state.ID, offerMaterial, offerAmountInt, requestMaterial, requestAmountInt)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -171,8 +149,8 @@ func CreateTradeHandler(g *game.GameService) http.HandlerFunc {
 
 func TradeHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
 			return
 		}
@@ -184,7 +162,7 @@ func TradeHandler(g *game.GameService) http.HandlerFunc {
 			return
 		}
 
-		err = g.ExecuteTrade(userID.(int), id)
+		err = g.ExecuteTrade(state.ID, id)
 		if err != nil {
 			http.Redirect(w, r, "/trade", http.StatusFound)
 			return
@@ -196,19 +174,13 @@ func TradeHandler(g *game.GameService) http.HandlerFunc {
 
 func TradeMenuHandler(g *game.GameService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := inject.GetUserID(r.Context())
-		if userID == nil {
+		state, ok := inject.GetState(r.Context())
+		if !ok {
 			http.Redirect(w, r, "/start", http.StatusFound)
 			return
 		}
 
-		state, err := g.GetUserState(userID.(int))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		trades, err := g.GetTrades(userID.(int))
+		trades, err := g.GetTrades(state.ID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

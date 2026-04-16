@@ -6,6 +6,7 @@ type Drop struct {
 }
 
 type State struct {
+	ID     int
 	Total  int         `json:"total"`
 	Stones []Inventory `json:"stones"`
 	Trades []Trade
