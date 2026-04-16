@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -68,6 +67,7 @@ func StartHandler(g *game.GameService, c *sessions.CookieStore) http.HandlerFunc
 		sessionID, err := g.InsertNewUser(session.Options.MaxAge)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Error inserting new user: %s\n", err.Error())
 			return
 		}
 
@@ -88,7 +88,9 @@ func TickHandler(g *game.GameService) http.HandlerFunc {
 
 		err := g.ProcessTicks(state.ID)
 		if err != nil {
+			log.Printf("Error processing ticks for user %d: %s\n", state.ID, err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 }
@@ -109,7 +111,7 @@ func CreateTradeMenuHandler(g *game.GameService) http.HandlerFunc {
 
 		err = t.ExecuteTemplate(w, "base", state)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 	}
@@ -128,6 +130,7 @@ func CreateTradeHandler(g *game.GameService) http.HandlerFunc {
 		offerAmountInt, err := strconv.Atoi(offerAmount)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Error converting string to int for user %d: %s\n", state.ID, err.Error())
 			return
 		}
 		requestMaterial := r.FormValue("material-req")
@@ -135,12 +138,14 @@ func CreateTradeHandler(g *game.GameService) http.HandlerFunc {
 		requestAmountInt, err := strconv.Atoi(requestAmount)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Error converting string to int for user %d: %s\n", state.ID, err.Error())
 			return
 		}
 
 		err = g.CreateTrade(state.ID, offerMaterial, offerAmountInt, requestMaterial, requestAmountInt)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Error creating trade for user %d: %s\n", state.ID, err.Error())
 			return
 		}
 		http.Redirect(w, r, "/trade", http.StatusFound)
@@ -159,12 +164,14 @@ func TradeHandler(g *game.GameService) http.HandlerFunc {
 		id, err := strconv.Atoi(formVal)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Error converting string to int for user %d: %s\n", state.ID, err.Error())
 			return
 		}
 
 		err = g.ExecuteTrade(state.ID, id)
 		if err != nil {
 			http.Redirect(w, r, "/trade", http.StatusFound)
+			log.Printf("Error executing trade for user %d on trade %d: %s\n", state.ID, id, err.Error())
 			return
 		}
 
@@ -183,6 +190,7 @@ func TradeMenuHandler(g *game.GameService) http.HandlerFunc {
 		trades, err := g.GetTrades(state.ID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			log.Printf("Error getting trades for user %d: %s\n", state.ID, err.Error())
 			return
 		}
 
