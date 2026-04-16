@@ -80,8 +80,6 @@ func NewStateMiddleware(g *game.GameService) func(http.Handler) http.Handler {
 				return
 			}
 
-			state.ID = userID.(int)
-
 			r = inject.State(r, state)
 			route.ServeHTTP(w, r)
 		})

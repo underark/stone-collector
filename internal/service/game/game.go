@@ -134,6 +134,7 @@ func (g *GameService) GetUserState(userID int) (models.State, error) {
 	}
 
 	state.Stones = stones
+	state.ID = userID
 
 	return state, nil
 }
